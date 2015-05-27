@@ -8,4 +8,4 @@ require [
 
 $.prototype.cloneElement = ($element) -> $(@[0].cloneNode())
 
-_.templateSettings.interpolate = /\{(.+?)\}/g
+_.templateSettings.interpolate = /\#\{(.+?)\}/g

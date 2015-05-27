@@ -1,0 +1,135 @@
+$dark: #202020
+$darkred: #b81d18
+$gray: #b6b6b6
+$darkblue: #004687
+$lightgray: #f0f0f0
+
+=border-radius ($radius)
+  -webkit-border-radius: $radius
+  -moz-border-radius: $radius
+  -ms-border-radius: $radius
+  border-radius: $radius
+
+=box-sizing ($type: border-box)
+  -webkit-box-sizing: $type
+  -moz-box-sizing: $type
+  -o-box-sizing: $type
+  -ms-box-sizing: $type
+  box-sizing: $type
+
+=transition ($transition-property, $transition-time, $method)
+  -webkit-transition: $transition-property $transition-time $method
+  -moz-transition: $transition-property $transition-time $method
+  -ms-transition: $transition-property $transition-time $method
+  -o-transition: $transition-property $transition-time $method
+  transition: $transition-property $transition-time $method
+
+=transform ($transforms)
+  -moz-transform: $transforms
+  -o-transform: $transforms
+  -ms-transform: $transforms
+  -webkit-transform: $transforms
+  transform: $transforms
+
+=user-select ($setting: none)
+  -webkit-user-select: $setting
+  -moz-user-select: $setting
+  -ms-user-select: $setting
+  -o-user-select: $setting
+  user-select: $setting
+
+=transform-style ($style)
+  -webkit-transform-style: $style
+  -moz-transform-style: $style
+  -ms-transform-style: $style
+  transform-style: $style
+
+=perspective ($style)
+  -webkit-perspective: $style 
+  -moz-perspective: $style 
+  -ms-perspective: $style 
+  perspective: $style
+
+$dark: #202020
+$darkred: #b81d18
+$gray: #b6b6b6
+$darkblue: #004687
+$lightgray: #f0f0f0
+
+
+
+html
+  height: 100%
+
+body
+  margin: 0
+  font-family: "Roboto Condensed"
+  height: inherit
+  display: table
+  width: 100%
+  overflow: hidden
+
+a
+  text-decoration: none
+
+.nav-container
+  display: table-row
+
+  .main-menu
+    display: table
+    overflow: hidden
+    height: 63px
+    background-color: $darkred
+    &:before
+      content: ""
+      display: table-cell
+      width: 100%
+    a
+      display: table-cell
+      vertical-align: middle
+      white-space: nowrap
+      padding-right: 25px
+      padding-left: 15px
+      text-transform: uppercase
+      font-size: 19px
+      position: relative
+      color: $lightgray
+      +transition(background-color, 0.3s, ease-in-out)
+      &:hover, .active
+        background-color: darken($darkred, 5)
+
+.main-container
+  display: table-row
+  height: 100%
+  +transform-style(preserve-3d)
+  +perspective(1300px)
+
+.view-container-one
+  background-color: $dark
+  height: inherit
+  position: relative
+  .view-one
+    height: inherit
+    width: 100%
+    overflow: hidden
+    position: absolute
+    padding: 15px
+    +box-sizing()
+    &:before
+      content: ""
+      z-index: -1
+      background-color: $gray
+      width: 100%
+      height: 100%
+      left: 0
+      top: 0
+      position: absolute
+      -webkit-clip-path: polygon(0 450px, 400px 0, 100% 0, 100% 100%, 0 100%)
+      +transform(rotateZ(180deg))
+    .shape-right-box
+      width: 600px
+      height: 500px
+      margin-right: -15px
+      margin-top: -15px
+      float: right
+      -webkit-shape-margin: 150px

@@ -6,24 +6,24 @@ define ->
   
       class StateLoader
         constructor: (path) ->
-          defer = $.Deferred()
+          deferred = $.Deferred()
           require [ path ], (View) =>
             setTimeout =>
-              defer.resolve View
-            , 300
+              deferred.resolve View
+            , 0
 
-          @promise = defer.promise()
+          @promise = deferred.promise()
       
       class NestedStateLoader
         constructor: (path, parent) ->
-          defer = $.Deferred()
+          deferred = $.Deferred()
           require [ path ], (View) =>
             setTimeout =>
               parent.promise.then =>
-                defer.resolve View
-            , if path is "page/product/list/view" then 150 else 0
+                deferred.resolve View
+            , if path is "page/product/list/view" then 0 else 0
 
-          @promise = defer.promise()
+          @promise = deferred.promise()
     
       create: (name, parent) ->
         unless parent
@@ -42,6 +42,7 @@ define ->
 
     constructor: (@config) ->
       @cache = { }
+      @selector = { }
 
     load: (setting) ->
       # 1) распарсить имя;
@@ -49,95 +50,86 @@ define ->
       #   1) от родителя к дочернему;
       #   2) все виды загружаюися асинхронно и одновременно:
       #     1) под имя содержит его настройки:
-      #       1) если их нет и нет инициализированного вида то инициализировать записать в кеш и показать ( first );
-      #       2) если вид не указан но он есть то делаем его hide ( hide );
-      #       3) если есть вид и его не требуется инициализировать то просто показать ( show );
-      #       4) если есть настройка init то удалить старый вид, выполнить для него remove, и записать в кеше новый, после выполнить операцию show ( first );
-      #       5) если есть настройки но нам уже не нужен этот вид то мы отменяем его инициализацию в объекте promise и удаляем из кеша;
+      #       1) если ранее под этим же селектором не было вида и вид не инициализирован, то делаем его инициализацию и first ( first );
+      #       2) если был вид, но в данный момент он не используется то делаем его ( last ), если селектор текущий - удаляем;
+      #       3) если был вид, и мы заменяем его под тем же селектором на новый, то делаем hide и init а после show ( hide, show );
+      #       4) если запрашивается тот же вид, под тем же селектором то делаем его обновление ( update );
       #   3) механика инициализации или отображения проиходит от внешнего ко внутреннему;
 
       names = _parseNested setting.state
-      params = setting.init
+      param = setting.param
       last = null
-      names.forEach (name) =>
-        do (currentConfig = @config[name], current = @cache[name]) =>
-          unless current
-            last = current = @cache[name] = _stateFactory.create currentConfig.path, last
+
+      for stateName in names when stateName
+
+        do (stateName, current = @cache[stateName], currentConfig = @config.routes[stateName]) =>
+
+          if not ( currentConfig and @selector[currentConfig.selector] ) and not ( current and current.view )
+
+            last = current = @cache[stateName] = _stateFactory.create currentConfig.path, last
             current.promise.then (ViewInstance) =>
-              current.instance = ViewInstance
-              current.view = currentConfig.initialize ViewInstance, ( params[name] if params )
-              currentConfig.first current.view
+              current.view = currentConfig.init ViewInstance, ( param[stateName] if param )
+              currentConfig.animation.first current.view
               current.status = "first"
-          else if params and params[name]
-            currentConfig.last @cache[name].view
-            last = current = @cache[name] = _stateFactory.create currentConfig.path, last
+            @selector[currentConfig.selector] = stateName
+
+          else if @selector[currentConfig.selector] and @selector[currentConfig.selector] isnt stateName
+
+            preStateName = @selector[currentConfig.selector]
+            pre = @cache[preStateName]
+            preConfig = @config.routes[preStateName]
+
+            prePriorityVertical = preConfig.priority[0]
+            prePriorityHorisontal = preConfig.priority[1]
+            currentPriorityVertical = currentConfig.priority[0]
+            currentPriorityHorisontal = currentConfig.priority[1]
+
+            if prePriorityVertical < currentPriorityVertical
+              animationState = "bottom-top"
+            else if prePriorityVertical > currentPriorityVertical
+              animationState = "top-bottom"
+            else if prePriorityVertical is currentPriorityVertical
+              if prePriorityHorisontal < currentPriorityHorisontal
+                animationState = "left-right"
+              else if prePriorityHorisontal > currentPriorityHorisontal
+                animationState = "right-left"
+
+            switch animationState
+              when "bottom-top"
+                preConfig.animation.centerTop pre.view, preConfig.last
+              when "top-bottom"
+                preConfig.animation.centerBottom pre.view, preConfig.last
+              when "left-right"
+                preConfig.animation.centerRight pre.view, preConfig.last
+              when "right-left"
+                preConfig.animation.centerLeft pre.view, preConfig.last
+
+            pre = null
+
+            last = current = @cache[stateName] = _stateFactory.create currentConfig.path, last
             current.promise.then (ViewInstance) =>
-              current.instance = ViewInstance
-              current.view = currentConfig.initialize ViewInstance, params[name]
-              currentConfig.first current.view
-              current.status = "first"
-          else if current.status is "hide"
-            currentConfig.show current.view
-            current.status = "show"
+              current.view = currentConfig.init ViewInstance, ( param[stateName] if param )
+              switch animationState
+                when "bottom-top"
+                  currentConfig.animation.bottomCenter current.view, currentConfig.first
+                when "top-bottom"
+                  currentConfig.animation.topCenter current.view, currentConfig.first
+                when "left-right"
+                  currentConfig.animation.leftCenter current.view, currentConfig.first
+                when "right-left"
+                  currentConfig.animation.rightCenter current.view, currentConfig.first
+              current.status = "show"
 
-      for name, config of @config
-        if names.indexOf(name) is -1
-          if @cache[name] and @cache[name].view and ( @cache[name].status is "show" or @cache[name].status is "first" )
-            @cache[name].status = "hide"
-            @config[name].hide @cache[name].view
+            @selector[currentConfig.selector] = stateName
 
-# define ->
+      for stateName, state of @config.routes when names.indexOf(stateName) is -1
 
-#   class State
-#     constructor: (@name, @path, @initialize, @show, @hide) ->
+        do (stateName, current = @cache[stateName], currentConfig = @config.routes[stateName]) =>
 
-#     equal: (name) -> @name is name
+          selectorName = @selector[currentConfig.selector]
 
-#     get: (defers) ->
-#       @state = "loading"
-#       defer = $.Deferred()
-#       promise = defer.promise()
-#       require [ @path ], (@view) => defer.resolve view
-#       if defers
-#         $.when.apply $, defers
-#           .done =>
-#             promise.then (view) =>
-#               @state = "used"
-#               @show @view = @initialize view
-#       else
-#         promise.then (view) =>
-#           @state = "used"
-#           @show @view = @initialize view
-
-#   class States
-#     constructor: (configs) ->
-#       @states = [ ]
-#       @states.push new State name, config.path, config.initialize, config.show, config.hide for name, config of configs
-
-#     get: (name) ->
-#       names = @_parseNested name
-#       defers = [ ]
-#       defersFor = null
-#       for name in names
-#         do (state = @_get name, defers, defersFor) =>
-#           unless state.view
-#             defers.push state.get defersFor
-#             defersFor = [ ].concat defers
-#           else if state.state isnt "used"
-#             state.show state.view
-#       for state in @states
-#         if names.indexOf(state.name) is -1 and state.view
-#           state.state = "cache"
-#           state.hide state.view
-
-#     _get: (name) ->
-#       return state for state in @states when state.equal name
-
-#     _parseNested: (name) ->
-#       names = name.split "."
-#       current = [ ]
-#       for name in names
-#         current.push name
-#         current.join "."
-
-#     takeView: ->
+          if current and current.view and selectorName and selectorName is stateName
+            currentConfig.animation.last current.view
+            current.view = null
+            @selector[currentConfig.selector] = null
+            current.status = "last"
